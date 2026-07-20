@@ -58,6 +58,10 @@ func (s *NanokubeE2ESuite) Test06Push_ApplyRevertAndChecksumValidation() {
 	// 1. Initial Push
 	err := push.DesiredToAgent(ctx, d1, "", agentAddr)
 	if err != nil {
+		if strings.Contains(err.Error(), "mkfs.erofs") || strings.Contains(err.Error(), "systemd-repart") {
+			t.Skipf("skipping push test: DDI build tool missing on runner: %v", err)
+			return
+		}
 		t.Fatalf("push initial desired document: %v", err)
 	}
 

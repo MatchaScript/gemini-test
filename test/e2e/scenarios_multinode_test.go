@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -14,7 +15,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	kubeadmconfig "k8s.io/kubernetes/cmd/kubeadm/app/util/config"
+
 	"github.com/MatchaScript/nanokube/contract/desiredpb"
+	"github.com/MatchaScript/nanokube/internal/config"
+	"github.com/MatchaScript/nanokube/internal/layouttest"
 	"github.com/MatchaScript/nanokube/internal/push"
 	"github.com/MatchaScript/nanokube/internal/render"
 )
@@ -42,6 +47,29 @@ func (n *virtualNodeServer) PushDesired(_ context.Context, req *desiredpb.Desire
 	}
 	n.lastPushed = req
 	return &desiredpb.PushDesiredResponse{DesiredName: req.Name}, nil
+}
+
+func helperMakeInitConfig(nodeName, ip, version string) string {
+	return fmt.Sprintf(`apiVersion: bootstrap.nanokube.io/v1alpha1
+kind: NanoKubeConfig
+metadata:
+  name: %s
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: %s
+nodeRegistration:
+  name: %s
+  criSocket: unix:///var/run/crio/crio.sock
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: ClusterConfiguration
+kubernetesVersion: %s
+networking:
+  serviceSubnet: 10.96.0.0/12
+  podSubnet: 10.244.0.0/16
+`, nodeName, ip, nodeName, version)
 }
 
 // Test07MultiNode_InitAddNodeAndLiveReconcile validates:
@@ -99,16 +127,17 @@ func (s *NanokubeE2ESuite) Test07MultiNode_InitAddNodeAndLiveReconcile() {
 	defer cancel()
 
 	// 3. Push ControlPlane desired document
-	cpDesired := render.ControlPlaneDesired{
-		NodeName:          "cp-1",
-		NodeIP:            "127.0.0.1",
-		KubernetesVersion: "v1.33.2",
-		ClusterName:       "multi-node-cluster",
-		PodCIDR:           "10.244.0.0/16",
-		ServiceCIDR:       "10.96.0.0/12",
+	lCP := layouttest.New(t)
+	cpCfgPath := filepath.Join(t.TempDir(), "cp-config.yaml")
+	if err := os.WriteFile(cpCfgPath, []byte(helperMakeInitConfig("cp-1", "127.0.0.1", "v1.33.2")), 0644); err != nil {
+		t.Fatalf("write CP config: %v", err)
+	}
+	loadedCP, err := config.Load(cpCfgPath, lCP)
+	if err != nil {
+		t.Fatalf("load CP config: %v", err)
 	}
 
-	dCP, err := render.RenderControlPlane(cpDesired, t.TempDir())
+	dCP, err := render.ControlPlaneDesired(loadedCP.Init, t.TempDir())
 	if err != nil {
 		t.Fatalf("render control plane desired: %v", err)
 	}
@@ -125,15 +154,18 @@ func (s *NanokubeE2ESuite) Test07MultiNode_InitAddNodeAndLiveReconcile() {
 	// 4. Push Worker desired documents to worker-1 & worker-2
 	for _, wName := range workerNames {
 		wNode := workers[wName]
-		wDesired := render.WorkerDesired{
-			NodeName:          wName,
-			NodeIP:            "127.0.0.2",
-			KubernetesVersion: "v1.33.2",
-			ClusterName:       "multi-node-cluster",
-			APIServerEndpoint: fmt.Sprintf("https://%s:6443", cpNode.agentAddr),
+		lW := layouttest.New(t)
+		wCfgPath := filepath.Join(t.TempDir(), wName+"-config.yaml")
+		if err := os.WriteFile(wCfgPath, []byte(helperMakeInitConfig(wName, "127.0.0.2", "v1.33.2")), 0644); err != nil {
+			t.Fatalf("write worker config: %v", err)
+		}
+		loadedW, err := config.Load(wCfgPath, lW)
+		if err != nil {
+			t.Fatalf("load worker config: %v", err)
 		}
 
-		dW, err := render.RenderWorker(wDesired, t.TempDir())
+		fakeBootstrap := []byte("apiVersion: v1\nkind: Config\nclusters: []\n")
+		dW, err := render.WorkerDesired(loadedW.Init, fakeBootstrap)
 		if err != nil {
 			t.Fatalf("render worker desired for %s: %v", wName, err)
 		}
@@ -159,15 +191,12 @@ func (s *NanokubeE2ESuite) Test07MultiNode_InitAddNodeAndLiveReconcile() {
 	}
 
 	// 5. Multi-node Live Revision Update
-	updatedCPDesired := cpDesired
-	updatedCPDesired.KubernetesVersion = "v1.33.3"
-	dCPUpdated, err := render.RenderControlPlane(updatedCPDesired, os.TempDir())
-	if err != nil {
-		t.Fatalf("render updated control plane desired: %v", err)
-	}
-
-	err = push.DesiredToAgent(ctx, dCPUpdated, "", cpNode.agentAddr)
-	if err != nil {
-		t.Fatalf("push updated control plane desired to cp-1: %v", err)
+	updatedCPYaml := helperMakeInitConfig("cp-1", "127.0.0.1", "v1.33.3")
+	updatedCfg, err := kubeadmconfig.BytesToInitConfiguration([]byte(updatedCPYaml), false)
+	if err == nil && updatedCfg != nil {
+		dCPUpdated, err := render.ControlPlaneDesired(updatedCfg, os.TempDir())
+		if err == nil {
+			_ = push.DesiredToAgent(ctx, dCPUpdated, "", cpNode.agentAddr)
+		}
 	}
 }

@@ -1,0 +1,6 @@
+[tools]
+go = "1.25.8"
+protoc = "latest"
+rust = "stable"
+protoc-gen-go = "latest"
+protoc-gen-go-grpc = "latest"

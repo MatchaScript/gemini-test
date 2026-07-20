@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package nanokube.desired.v1;
+
+option go_package = "github.com/MatchaScript/nanokube/contract/desiredpb";
+
+// Desired is the per-node desired document: config only, rendered as a
+// confext DDI blob. See docs/nanokube/2026-07-06-nanokube-component-architecture-rev5.md,
+// "desired は一枚のドキュメント".
+message Desired {
+  reserved 2;
+  reserved "target_image_digest";
+
+  // name is the content hash of the rendered file set (= revision) that
+  // produced blob — see internal/render.Desired.Name().
+  string name = 1;
+
+  // blob_sha256 is the sha256 of blob, for transport integrity
+  // verification independent of any dm-verity signature.
+  string blob_sha256 = 3;
+
+  // blob is the confext DDI (.raw) byte content, carried over gRPC.
+  bytes blob = 4;
+}
+
+// DesiredMetadata mirrors Desired without the blob payload. It is the
+// wire format for the <name>.json sidecar that sits next to <name>.raw
+// on disk (in contract/fixtures/ and in the agent's bookkeeping) — small
+// enough to inspect/diff, while the blob lives separately as the .raw
+// file or travels over gRPC as Desired.blob.
+message DesiredMetadata {
+  reserved 2;
+  reserved "target_image_digest";
+
+  string name = 1;
+  string blob_sha256 = 3;
+}
+
+// PushDesiredResponse acknowledges a PushDesired call. Failure (blob
+// sha256 mismatch, confext placement/refresh failure, etc.) surfaces as
+// a gRPC error status, not a field here — this message only confirms
+// success and echoes back which document was applied.
+message PushDesiredResponse {
+  // desired_name echoes back Desired.name from the request, confirming
+  // which version this acknowledgment refers to (useful when responses
+  // and requests could otherwise be re-ordered/pipelined).
+  string desired_name = 1;
+}
+
+// Agent is the gRPC service nanokube-agent exposes. The operator (in
+// steady state) or the CLI (bootstrap/break-glass) is the client; the
+// agent never initiates contact. Step 1 runs this dev-grade (plaintext
+// or self-signed) — mTLS/PKI hardening is Step 5.
+service Agent {
+  // PushDesired delivers a new desired document for the agent to apply:
+  // blob sha256 verification, confext placement + refresh, then
+  // bookkeeping, in that order (see internal/ddi and the agent's own
+  // apply pipeline). Idempotent: pushing a Desired whose name matches
+  // what's already applied is a no-op success.
+  rpc PushDesired(Desired) returns (PushDesiredResponse);
+}

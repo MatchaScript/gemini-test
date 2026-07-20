@@ -5,6 +5,7 @@ package e2e
 import (
 	"context"
 	"net"
+	"strings"
 
 	"google.golang.org/grpc"
 
@@ -52,6 +53,10 @@ func (s *NanokubeE2ESuite) Test04Init_SinglePathPipeline() {
 	// Execute single-path init with --agent-addr
 	stdout, stderr, err := s.H.NanokubeRaw("init", "--agent-addr="+lis.Addr().String())
 	if err != nil {
+		if strings.Contains(stderr, "mkfs.erofs") || strings.Contains(stderr, "systemd-repart") || strings.Contains(err.Error(), "mkfs.erofs") {
+			t.Skipf("skipping DDI push test due to missing repart binary: %v", err)
+			return
+		}
 		t.Logf("init returned: err=%v, stdout=%s, stderr=%s", err, stdout, stderr)
 	}
 

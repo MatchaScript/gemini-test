@@ -36,7 +36,7 @@ func TestRun_NoOpWhenAlreadyJoined(t *testing.T) {
 	if err := os.WriteFile(l.KubeletKubeconfig, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	err := Run(context.Background(), Options{Server: "https://10.0.2.10:6443", Token: "abcdef.0123456789abcdef"}, l, "v1.35.0", io.Discard)
+	err := Run(context.Background(), Options{Server: "https://10.0.2.10:6443", Token: "abcdef.0123456789abcdef"}, l, io.Discard)
 	if err != nil {
 		t.Fatalf("already-joined must be a no-op, got %v", err)
 	}

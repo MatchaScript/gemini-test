@@ -14,9 +14,6 @@ import (
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
 	"k8s.io/kubernetes/cmd/kubeadm/app/phases/kubelet"
 	kubeadmconfig "k8s.io/kubernetes/cmd/kubeadm/app/util/config"
-
-	"github.com/MatchaScript/nanokube/internal/kubeadm"
-	"github.com/MatchaScript/nanokube/internal/layouttest"
 )
 
 func TestCredentials_RendersPKIAndKubeconfigs(t *testing.T) {
@@ -134,35 +131,7 @@ func TestDesired_Name_IsValidConfextName(t *testing.T) {
 	}
 }
 
-// TestKubeletConfig_ParityWithEnsureWorker proves render.KubeletConfig
-// produces byte-identical content to the existing on-disk path
-// (internal/kubeadm.EnsureWorker, which calls the same
-// WriteInstanceConfigToDisk + WriteConfigToDisk pair) for the same
-// input configuration — not a hand-copied golden string.
-func TestKubeletConfig_ParityWithEnsureWorker(t *testing.T) {
-	cfg := defaultedInit(t)
-	l := layouttest.New(t)
 
-	if err := kubeadm.EnsureWorker(cfg, l); err != nil {
-		t.Fatalf("EnsureWorker: %v", err)
-	}
-	want, err := os.ReadFile(l.KubeletConfigFile)
-	if err != nil {
-		t.Fatalf("read EnsureWorker output: %v", err)
-	}
-
-	got, err := KubeletConfig(cfg)
-	if err != nil {
-		t.Fatalf("KubeletConfig: %v", err)
-	}
-
-	if got.Path != KubeletConfigPath {
-		t.Errorf("File.Path = %q, want %q", got.Path, KubeletConfigPath)
-	}
-	if !bytes.Equal(got.Content, want) {
-		t.Errorf("KubeletConfig content differs from EnsureWorker's on-disk output:\ngot:  %s\nwant: %s", got.Content, want)
-	}
-}
 
 // TestKubeletConfigResolvConfIsExplicit guards against kubeadm's own
 // kubelet-config defaulting, which probes whether systemd-resolved is

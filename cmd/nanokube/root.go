@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -10,12 +11,16 @@ import (
 )
 
 type globalOpts struct {
-	configPath string
-	layout     layout.Layout
+	configPath   string
+	fileContexts string
+	layout       layout.Layout
 }
 
 func newRootCmd() *cobra.Command {
-	return newRootCmdWithOpts(&globalOpts{layout: layout.Default()})
+	return newRootCmdWithOpts(&globalOpts{
+		fileContexts: os.Getenv("NANOKUBE_FILE_CONTEXTS"),
+		layout:       layout.Default(),
+	})
 }
 
 // newRootCmdWithOpts builds the cobra tree from a caller-supplied opts.
@@ -32,6 +37,7 @@ func newRootCmdWithOpts(opts *globalOpts) *cobra.Command {
 		SilenceErrors: true,
 	}
 	cmd.PersistentFlags().StringVar(&opts.configPath, "config", opts.configPath, "path to NanoKubeConfig YAML")
+	cmd.PersistentFlags().StringVar(&opts.fileContexts, "selinux-file-contexts", opts.fileContexts, "path to SELinux file_contexts database for DDI labeling")
 	cmd.AddCommand(
 		newInitCmd(opts),
 		newHealthcheckCmd(opts),

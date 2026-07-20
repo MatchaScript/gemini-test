@@ -877,9 +877,8 @@ mod tests {
 
     #[test]
     fn kubelet_state_propagates_dbus_failure_as_ops_error() {
-        let mut bus = FakeSystemdBus::new(Err(DbusError(
-            "connect to system bus: boom".to_string(),
-        )));
+        let mut bus =
+            FakeSystemdBus::new(Err(DbusError("connect to system bus: boom".to_string())));
 
         assert!(kubelet_state(&mut bus).is_err());
     }

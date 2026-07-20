@@ -3,19 +3,16 @@
 package e2e
 
 import (
+	"context"
+	"net"
+
+	"google.golang.org/grpc"
+
+	"github.com/MatchaScript/nanokube/contract/desiredpb"
 	"github.com/MatchaScript/nanokube/test/e2etest"
 )
 
-// initArtifacts is the full set of paths `nanokube init` must produce
-// AND leave on disk by the time it returns. super-admin.conf is
-// deliberately NOT in this list: init writes it just-in-time to seed
-// the kubeadm:cluster-admins ClusterRoleBinding and removes it before
-// returning, so it never lingers on a long-lived node (see
-// initialize.Run + removeSuperAdminKubeconfig).
-//
-// Drift here is the most common e2e regression signal — keep this
-// list in sync with kubeadm.Ensure + EnsureAddons output minus init's
-// post-RBAC cleanup.
+// initArtifacts is the set of paths delivered into /etc/kubernetes via confext.
 var initArtifacts = []string{
 	"/etc/kubernetes/pki/ca.crt",
 	"/etc/kubernetes/pki/apiserver.crt",
@@ -34,30 +31,48 @@ var initArtifacts = []string{
 	"/etc/kubernetes/kubeadm-flags.env",
 }
 
-// Test04Init_WritesAllArtifacts asserts `nanokube init` produces every
-// expected PKI / kubeconfig / manifest / kubelet artefact and writes
-// the last-event state marker that state.Exists() trips on.
-// Mirrors bash :test_normal_bootstrap_writes_all_artifacts.
-//
-// Note: the bash suite uses the legacy `bootstrap` verb; the CLI verb
-// is now `init`. The Go port uses the current verb.
-func (s *NanokubeE2ESuite) Test04Init_WritesAllArtifacts() {
-	s.H.Nanokube("init")
-	for _, p := range initArtifacts {
-		e2etest.AssertFilePresent(s.T(), p, "init artifact")
+// Test04Init_SinglePathPipeline asserts `nanokube init` generates desired document
+// and pushes it over gRPC to nanokube-agent.
+func (s *NanokubeE2ESuite) Test04Init_SinglePathPipeline() {
+	t := s.T()
+
+	// Spin up local agent server to receive push if no real agent endpoint is active
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
 	}
-	e2etest.AssertFilePresent(s.T(),
-		"/var/lib/nanokube/state/last-event", "init event marker")
+	defer lis.Close()
+
+	srv := grpc.NewServer()
+	fake := &fakeInitAgentServer{}
+	desiredpb.RegisterAgentServer(srv, fake)
+	go func() { _ = srv.Serve(lis) }()
+	defer srv.Stop()
+
+	// Execute single-path init with --agent-addr
+	s.H.Nanokube("init", "--agent-addr="+lis.Addr().String())
+
+	// Assert last-event state marker
+	e2etest.AssertFilePresent(t, "/var/lib/nanokube/state/last-event", "init event marker")
+
+	// Assert agent received push
+	if fake.pushedName == "" {
+		t.Fatal("init failed to push desired document to agent")
+	}
 }
 
-// Test05Init_RefusesWhenStateExists asserts that re-running init
-// refuses when state already exists, protecting against accidental
-// cert blow-away. Depends on Test04 having created state. Mirrors
-// bash :test_abnormal_bootstrap_refuses_when_state_exists.
-//
-// (The bash suite also had a `bootstrap --force` overwrite test;
-// the current init CLI exposes no --force flag. The supported
-// recovery path is `reset --yes` then `init`, exercised by Test16.)
+// Test05Init_RefusesWhenStateExists asserts that re-running init refuses
+// when state already exists, protecting against accidental cert blow-away.
 func (s *NanokubeE2ESuite) Test05Init_RefusesWhenStateExists() {
 	s.H.NanokubeExpectFail("init")
+}
+
+type fakeInitAgentServer struct {
+	desiredpb.UnimplementedAgentServer
+	pushedName string
+}
+
+func (s *fakeInitAgentServer) PushDesired(_ context.Context, req *desiredpb.Desired) (*desiredpb.PushDesiredResponse, error) {
+	s.pushedName = req.Name
+	return &desiredpb.PushDesiredResponse{DesiredName: req.Name}, nil
 }

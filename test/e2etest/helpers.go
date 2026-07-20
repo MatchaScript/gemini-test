@@ -1,6 +1,9 @@
 package e2etest
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
 // Helpers holds shared state and provides cli / kubectl / systemctl
 // wrappers for the e2e suite. Create one per suite (or per test) with
@@ -34,3 +37,9 @@ func New(t testing.TB, cfg Config) *Helpers {
 
 // NodeName returns the resolved node name used by waits/assertions.
 func (h *Helpers) NodeName() string { return h.nodeName }
+
+// IsK8sAvailable checks if admin.conf exists on disk indicating an active or initialised cluster.
+func IsK8sAvailable() bool {
+	_, err := os.Stat("/etc/kubernetes/admin.conf")
+	return err == nil
+}

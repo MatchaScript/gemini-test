@@ -96,8 +96,6 @@ networking:
 	}
 }
 
-
-
 func TestCLI_InitRefusesWhenStateExists(t *testing.T) {
 	// We can't run real init (needs kubeadm PKI write + hostname
 	// permissions), but we can exercise the state.Exists() refusal path

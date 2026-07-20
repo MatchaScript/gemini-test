@@ -20,11 +20,11 @@ type Cluster struct {
 }
 
 type ClusterSpec struct {
-	KubernetesVersion    string                 `json:"kubernetesVersion"`
+	KubernetesVersion    string                `json:"kubernetesVersion"`
 	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
 	Networking           NetworkingSpec        `json:"networking,omitempty"`
-	ControlPlane         ControlPlaneSpec       `json:"controlPlane,omitempty"`
-	NodeConfigDefaults   NodeConfigSpec         `json:"nodeConfigDefaults,omitempty"`
+	ControlPlane         ControlPlaneSpec      `json:"controlPlane,omitempty"`
+	NodeConfigDefaults   NodeConfigSpec        `json:"nodeConfigDefaults,omitempty"`
 }
 
 type NetworkingSpec struct {
@@ -34,13 +34,13 @@ type NetworkingSpec struct {
 }
 
 type ControlPlaneSpec struct {
-	APIServer    APIServerSpec         `json:"apiServer,omitempty"`
-	NodePoolSpec *NodePoolSpec         `json:"nodePoolSpec,omitempty"`
-	NodePoolName string                `json:"nodePoolName,omitempty"`
+	APIServer    APIServerSpec `json:"apiServer,omitempty"`
+	NodePoolSpec *NodePoolSpec `json:"nodePoolSpec,omitempty"`
+	NodePoolName string        `json:"nodePoolName,omitempty"`
 }
 
 type APIServerSpec struct {
-	ExtraArgs    map[string]string `json:"extraArgs,omitempty"`
+	ExtraArgs     map[string]string `json:"extraArgs,omitempty"`
 	CertExtraSANs []string          `json:"certExtraSANs,omitempty"`
 }
 
@@ -70,13 +70,13 @@ type NodePool struct {
 }
 
 type NodePoolSpec struct {
-	ClusterName       string                `json:"clusterName"`
-	Selector          metav1.LabelSelector  `json:"selector"`
-	KubernetesVersion string                `json:"kubernetesVersion,omitempty"`
-	NodeLabels        map[string]string     `json:"nodeLabels,omitempty"`
-	Taints            []corev1.Taint        `json:"taints,omitempty"`
-	UpgradeStrategy   UpgradeStrategySpec   `json:"upgradeStrategy,omitempty"`
-	Config            NodeConfigSpec        `json:"config,omitempty"`
+	ClusterName       string               `json:"clusterName"`
+	Selector          metav1.LabelSelector `json:"selector"`
+	KubernetesVersion string               `json:"kubernetesVersion,omitempty"`
+	NodeLabels        map[string]string    `json:"nodeLabels,omitempty"`
+	Taints            []corev1.Taint       `json:"taints,omitempty"`
+	UpgradeStrategy   UpgradeStrategySpec  `json:"upgradeStrategy,omitempty"`
+	Config            NodeConfigSpec       `json:"config,omitempty"`
 }
 
 type UpgradeStrategySpec struct {
@@ -93,13 +93,13 @@ type KubeletConfigSpec struct {
 }
 
 type FileSourceSpec struct {
-	Path   string             `json:"path"`
-	Mode   string             `json:"mode,omitempty"`
-	Source FileSourceRefSpec  `json:"source"`
+	Path   string            `json:"path"`
+	Mode   string            `json:"mode,omitempty"`
+	Source FileSourceRefSpec `json:"source"`
 }
 
 type FileSourceRefSpec struct {
-	Inline        string                  `json:"inline,omitempty"`
+	Inline       string                       `json:"inline,omitempty"`
 	ConfigMapRef *corev1.ConfigMapKeySelector `json:"configMapRef,omitempty"`
 	SecretRef    *corev1.SecretKeySelector    `json:"secretRef,omitempty"`
 }
@@ -161,13 +161,13 @@ type InventoryMachine struct {
 }
 
 type InventoryMachineSpec struct {
-	Address             string                   `json:"address"`
-	K8sIP               string                   `json:"k8sIP,omitempty"`
-	AgentPort           int32                    `json:"agentPort,omitempty"`
-	CredentialSecretRef *corev1.SecretReference  `json:"credentialSecretRef,omitempty"`
-	NodeLabels          map[string]string        `json:"nodeLabels,omitempty"`
-	Maintenance         bool                     `json:"maintenance,omitempty"`
-	ProviderID          string                   `json:"providerID,omitempty"`
+	Address             string                  `json:"address"`
+	K8sIP               string                  `json:"k8sIP,omitempty"`
+	AgentPort           int32                   `json:"agentPort,omitempty"`
+	CredentialSecretRef *corev1.SecretReference `json:"credentialSecretRef,omitempty"`
+	NodeLabels          map[string]string       `json:"nodeLabels,omitempty"`
+	Maintenance         bool                    `json:"maintenance,omitempty"`
+	ProviderID          string                  `json:"providerID,omitempty"`
 }
 
 type InventoryMachineStatus struct {

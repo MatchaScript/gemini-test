@@ -131,8 +131,6 @@ func TestDesired_Name_IsValidConfextName(t *testing.T) {
 	}
 }
 
-
-
 // TestKubeletConfigResolvConfIsExplicit guards against kubeadm's own
 // kubelet-config defaulting, which probes whether systemd-resolved is
 // active on the render host (a Kind container, not the node) and

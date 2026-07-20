@@ -30,8 +30,8 @@ var initArtifacts = []string{
 	"/etc/kubernetes/manifests/kube-apiserver.yaml",
 	"/etc/kubernetes/manifests/kube-controller-manager.yaml",
 	"/etc/kubernetes/manifests/kube-scheduler.yaml",
-	"/var/lib/kubelet/config.yaml",
-	"/var/lib/kubelet/kubeadm-flags.env",
+	"/etc/kubernetes/kubelet-config.yaml",
+	"/etc/kubernetes/kubeadm-flags.env",
 }
 
 // Test04Init_WritesAllArtifacts asserts `nanokube init` produces every
